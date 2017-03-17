@@ -11,11 +11,29 @@ extensions:
       script: |-
         git log -1 --pretty=%h >> /data/src/github.com/openshift/aos-cd-jobs/ORIGIN_COMMIT
     - type: "script"
+      title: "install ansible"
+      repository: "origin"
+      script: |-
+        sudo yum install -y ansible-2.2.0.0
+    - type: "script"
+      title: "install Ansible plugins"
+      repository: "origin"
+      script: |-
+        sudo yum install -y python-pip
+        sudo pip install junit_xml
+        sudo chmod o+rw /etc/environment
+        echo "ANSIBLE_JUNIT_DIR=$( pwd )/_output/tests/ansible_junit" >> /etc/environment
+        sudo mkdir -p /usr/share/ansible/plugins/callback
+        for plugin in 'default_with_output_lists' 'generate_junit'; do
+           wget "https://raw.githubusercontent.com/openshift/origin-ci-tool/master/oct/ansible/oct/callback_plugins/${plugin}.py"
+           sudo mv "${plugin}.py" /usr/share/ansible/plugins/callback
+        done
+        sudo sed -r -i -e 's/^#?stdout_callback.*/stdout_callback = default_with_output_lists/' -e 's/^#?callback_whitelist.*/callback_whitelist = generate_junit/' /etc/ansible/ansible.cfg
+    - type: "script"
       title: "install origin GA and update"
       repository: "aos-cd-jobs"
       script: |-
         pkg_name="origin"
-        sudo yum install -y ansible-2.2.0.0
         git checkout sjb
         general_yml_file=inventory/group_vars/OSEv3/general.yml
         if [ $pkg_name = "atomic-openshift" ]
@@ -27,6 +45,7 @@ extensions:
         do
           sudo python hack/get_available_pkgs.py $pkg > "all_${pkg}_versions"
           sed -i '/^[a-zA-Z]/d' all_${pkg}_versions
+          sed -i '/^[1|3][.0-9]*-0/d' all_${pkg}_versions
           sort -u -o all_${pkg}_versions all_${pkg}_versions
           cat all_${pkg}_versions
         done
@@ -42,14 +61,13 @@ extensions:
         sudo yum install -y atomic-openshift-utils-${all_current_openshift_ansible_versions_array[0]}
         echo "=== Installing ${pkg_name}-${set_openshift_version} ==="
         ansible-playbook --become --become-user root --connection local -i inventory/ /usr/share/ansible/openshift-ansible/playbooks/byo/openshift-node/network_manager.yml
-        ansible-playbook --become --become-user root --connection local -i inventory/ /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml -e set_openshift_version="${set_openshift_version}" -e oreg_url='openshift/origin-${component}:'"$( cat ./ORIGIN_COMMIT )"
+        ansible-playbook --become --become-user root --connection local -i inventory/ /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml -e set_openshift_version="${set_openshift_version}" -e enable_excluders=false
         if [ ${#all_current_openshift_versions_array[@]} -gt 1 ]
         then
           echo "=== Updating openshift-ansible to openshift-ansible-${all_current_openshift_ansible_versions_array[${#all_current_openshift_ansible_versions_array[@]}-1]} ==="
-          sudo yum erase -y atomic-openshift-utils
           sudo yum install -y atomic-openshift-utils-${all_current_openshift_ansible_versions_array[${#all_current_openshift_ansible_versions_array[@]}-1]}
           echo "=== Updating ${pkg_name} to ${pkg_name}-${all_current_openshift_versions_array[${#all_current_openshift_versions_array[@]}-1]} ==="
-          ansible-playbook --become --become-user root --connection local --inventory inventory/ /usr/share/ansible/openshift-ansible/playbooks/byo/openshift-cluster/upgrades/v3_${current_openshift_minor_version}/upgrade.yml -e openshift_upgrade_target="${all_current_openshift_versions_array[${#all_current_openshift_versions_array[@]}-1]}" -e oreg_url='openshift/origin-${component}:'"$( cat ./ORIGIN_COMMIT )"
+          ansible-playbook --become --become-user root --connection local --inventory inventory/ /usr/share/ansible/openshift-ansible/playbooks/byo/openshift-cluster/upgrades/v3_${current_openshift_minor_version}/upgrade.yml -e openshift_upgrade_target="${all_current_openshift_versions_array[${#all_current_openshift_versions_array[@]}-1]}" -e enable_excluders=false
         fi
     - type: "script"
       title: "build an origin release"
@@ -78,19 +96,21 @@ extensions:
         EOR
         sudo cp ./openshift-ansible-local-release.repo /etc/yum.repos.d
     - type: "script"
-      title: "install the openshift-ansible release"
+      title: "upgrade the openshift-ansible to release"
       script: |-
-        sudo yum install -y atomic-openshift-utils
+        sudo yum upgrade -y atomic-openshift-utils
     - type: "script"
       title: "update origin"
       repository: "aos-cd-jobs"
       script: |-
-        sudo python hack/get_available_pkgs.py origin > "all_origin_versions"
-        sed -i '/^[a-zA-Z]/d' all_origin_versions
-        sort -u -o all_origin_versions all_origin_versions
-        upgrade_version=$(tail -1 all_origin_versions)
+        pkg_name="origin"
+        sudo python hack/get_available_pkgs.py ${pkg_name} > "all_${pkg_name}_versions"
+        sed -i '/^[a-zA-Z]/d' all_${pkg_name}_versions
+        sort -u -o all_${pkg_name}_versions all_${pkg_name}_versions
+        upgrade_version=$(tail -1 all_${pkg_name}_versions)
+        upgrade_major_version=$(echo "${upgrade_version}" | awk -F'.' '{print $1}')
         upgrade_minor_version=$(echo "${upgrade_version}" | awk -F'.' '{print $2}')
-        ansible-playbook --become --become-user root --connection local --inventory inventory/ /usr/share/ansible/openshift-ansible/playbooks/byo/openshift-cluster/upgrades/v3_${upgrade_minor_version}/upgrade.yml -e openshift_upgrade_target="${upgrade_version}" -e oreg_url='openshift/origin-${component}:'"$( cat ./ORIGIN_COMMIT )"
+        ansible-playbook --become --become-user root --connection local --inventory inventory/ /usr/share/ansible/openshift-ansible/playbooks/byo/openshift-cluster/upgrades/v3_${upgrade_minor_version}/upgrade.yml -e openshift_upgrade_target="${upgrade_major_version}.${upgrade_minor_version}" -e oreg_url='openshift/origin-${component}:'"$( cat ./ORIGIN_COMMIT )" -e enable_excluders=false
     - type: "script"
       title: "expose the kubeconfig"
       script: |-
