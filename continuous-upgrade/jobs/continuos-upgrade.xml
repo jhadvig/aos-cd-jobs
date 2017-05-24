@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project>
+  <actions/>
+  <description>Automatically generated test&lt;!-- Managed by Jenkins Job Builder --&gt;</description>
+  <keepDependencies>false</keepDependencies>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <concurrentBuild>false</concurrentBuild>
+  <canRoam>true</canRoam>
+  <properties/>
+  <scm class="hudson.scm.NullSCM"/>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>#!/bin/bash
+set -xeuo pipefail
+echo $HOME
+latest=$( readlink $HOME/origin-ci-tool/latest )
+touch $latest
+cp $latest/bin/activate $WORKSPACE/activate
+cat &gt;&gt; $WORKSPACE/activate &lt;&lt;EOF
+export OCT_CONFIG_HOME=$WORKSPACE/.config
+EOF
+
+source $WORKSPACE/activate
+mkdir -p $OCT_CONFIG_HOME
+rm -rf $OCT_CONFIG_HOME/origin-ci-tool
+oct configure ansible-client verbosity 2
+oct configure aws-client 'keypair_name' 'libra'
+oct configure aws-client 'private_key_path' '/var/lib/jenkins/.ssh/devenv.pem'
+
+#!/bin/bash
+oct provision remote all-in-one --os &quot;rhel&quot; --stage &quot;base&quot; --provider &quot;aws&quot; --discrete-ssh-config --name &quot;$JOB_NAME&quot;_&quot;$BUILD_NUMBER&quot;
+</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers/>
+  <buildWrappers/>
+</project>
