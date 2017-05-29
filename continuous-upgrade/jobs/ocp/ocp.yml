@@ -5,3 +5,4 @@
     defaults: ocp-defaults
     builders:
       - shell: '{command}'
+      - shell: !include-raw-escape: test.sh

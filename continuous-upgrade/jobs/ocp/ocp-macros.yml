@@ -12,6 +12,7 @@
       # - '{name}_job':
       #     name: deprovision
       #     command: ls /etc
+    job_config_path: ~/continuous-upgrade/
     install-oct: |
       #!/bin/bash
       set -xeuo pipefail
@@ -30,5 +31,8 @@
       oct configure aws-client 'keypair_name' 'libra'
       oct configure aws-client 'private_key_path' '/var/lib/jenkins/.ssh/devenv.pem'
     provision-cloud-resources: |
-      #!/bin/bash
       oct provision remote all-in-one --os "rhel" --stage "base" --provider "aws" --discrete-ssh-config --name "$JOB_NAME"_"$BUILD_NUMBER"
+      mkdir -p ~/continuous-upgrade
+      cp -f ./.config/origin-ci-tool/inventory/.ssh_config -la ~/continuous-upgrade/
+      ls -la ~/continuous-upgrade/
+      cat ~/continuous-upgrade/.ssh_config

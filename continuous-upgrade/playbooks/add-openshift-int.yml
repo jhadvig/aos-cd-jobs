@@ -1,5 +1,9 @@
-- hosts: localhost
+- hosts: all
   tasks:
+  - name: Disable all repos
+    shell: 'yum-config-manager --disable \*'
+  - name: Enable oso-rhui-rhel-server-releases repo
+    shell: yum-config-manager --enable oso-rhui-rhel-server-releases
   - name: Add openshift-int repo
     yum_repository:
       name: openshift-int
@@ -12,3 +16,7 @@
       sslclientcert: "/var/lib/yum/client-cert.pem"
       sslclientkey: "/var/lib/yum/client-key.pem"
       gpgkey: "https://mirror.ops.rhcloud.com/libra/keys/RPM-GPG-KEY-redhat-release https://mirror.ops.rhcloud.com/libra/keys/RPM-GPG-KEY-redhat-beta https://mirror.ops.rhcloud.com/libra/keys/RPM-GPG-KEY-redhat-openshifthosted"
+  - name: Install latest atomic-openshift-utils
+    yum:
+      name: atomic-openshift-utils
+      state: latest
