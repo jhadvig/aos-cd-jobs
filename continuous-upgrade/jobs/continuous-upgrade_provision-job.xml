@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <project>
   <actions/>
-  <description>Automatically generated test&lt;!-- Managed by Jenkins Job Builder --&gt;</description>
+  <description>Continuous Upgrade - Install Job&lt;!-- Managed by Jenkins Job Builder --&gt;</description>
   <keepDependencies>false</keepDependencies>
   <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
   <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <authToken>origin1</authToken>
   <concurrentBuild>false</concurrentBuild>
   <canRoam>true</canRoam>
   <properties/>
@@ -12,7 +13,7 @@
   <builders>
     <hudson.tasks.Shell>
       <command>#!/bin/bash
-set -xeuo pipefail
+set -o errexit -o nounset -o pipefail -o xtrace
 echo $HOME
 latest=$( readlink $HOME/origin-ci-tool/latest )
 touch $latest
@@ -27,19 +28,24 @@ rm -rf $OCT_CONFIG_HOME/origin-ci-tool
 oct configure ansible-client verbosity 2
 oct configure aws-client 'keypair_name' 'libra'
 oct configure aws-client 'private_key_path' '/var/lib/jenkins/.ssh/devenv.pem'
-
 oct provision remote all-in-one --os &quot;rhel&quot; --stage &quot;base&quot; --provider &quot;aws&quot; --discrete-ssh-config --name &quot;$JOB_NAME&quot;_&quot;$BUILD_NUMBER&quot;
+rm -rf ~/continuous-upgrade
 mkdir -p ~/continuous-upgrade
-cp -f ./.config/origin-ci-tool/inventory/.ssh_config -la ~/continuous-upgrade/
-ls -la ~/continuous-upgrade/
-cat ~/continuous-upgrade/.ssh_config
-</command>
-    </hudson.tasks.Shell>
-    <hudson.tasks.Shell>
-      <command>#!/bin/bash
-script=$( mktemp )
-cat &lt;&lt;SCRIPT &gt;$script
+cp -fr ./.config/origin-ci-tool ~/continuous-upgrade/
+tree ~/continuous-upgrade/
+cat ~/continuous-upgrade/origin-ci-tool/inventory/.ssh_config
+
+script=&quot;$( mktemp )&quot;
+cat &lt;&lt;SCRIPT &gt;&quot;${script}&quot;
 #!/bin/bash
+set -o errexit -o nounset -o pipefail -o xtrace
+
+function terminate() {
+    curl -kL &quot;https://ci.openshift.redhat.com/jenkins/job/continuous-upgrade_terminate-job/build?token=origin1&quot;
+}
+
+trap terminate ERR
+
 cat &lt;&lt; EOR &gt; ./openshift-int.repo
 [openshift-int]
 baseurl = https://mirror.openshift.com/enterprise/online-int/latest/x86_64/os/
@@ -62,13 +68,16 @@ ansible-playbook  -vv          \
           /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml \
           -e etcd_data_dir=&quot;/tmp/etcd&quot;                                  \
           -e deployment_type=&quot;openshift-enterprise&quot;                     \
-          -e oreg_url='registry.ops.openshift.com/openshift3/ose-${component}:${version}' \
+          -e oreg_url='registry.ops.openshift.com/openshift3/ose-\${component}:\${version}' \
           -e openshift_docker_insecure_registries=&quot;brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888&quot; \
           -e openshift_docker_additional_registries=&quot;brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888,registry.ops.openshift.com&quot;
+
+curl -kL &quot;https://ci.openshift.redhat.com/jenkins/job/continuous-upgrade_upgrade-job/build?token=origin1&quot;
+
 SCRIPT
-chmod +x $script
-scp -F ./.config/origin-ci-tool/inventory/.ssh_config $script openshiftdevel:$script
-ssh -F ./.config/origin-ci-tool/inventory/.ssh_config -t openshiftdevel &quot;bash -l -c \&quot;$script\&quot;&quot; </command>
+chmod +x &quot;${script}&quot;
+scp -F ~/continuous-upgrade/origin-ci-tool/inventory/.ssh_config &quot;${script}&quot; openshiftdevel:&quot;${script}&quot;
+ssh -F ~/continuous-upgrade/origin-ci-tool/inventory/.ssh_config -t openshiftdevel &quot;bash -l -c \&quot;${script}\&quot;&quot;</command>
     </hudson.tasks.Shell>
   </builders>
   <publishers/>

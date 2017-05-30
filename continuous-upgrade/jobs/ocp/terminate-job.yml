@@ -1,0 +1,11 @@
+- job:
+    name: continuos-upgrade/terminate-job
+    description: 'Continuous Upgrade - Terminate Job'
+    project-type: freestyle
+    test-var: testik
+    auth-token: origin1
+    defualts: 'global'
+    builders:
+      - shell:
+          !include-raw:
+              - terminate-cloud-resources.sh

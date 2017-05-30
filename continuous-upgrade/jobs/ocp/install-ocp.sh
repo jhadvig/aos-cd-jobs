@@ -1,7 +1,14 @@
+script="$( mktemp )"
+cat <<SCRIPT >"${script}"
 #!/bin/bash
-script=$( mktemp )
-cat <<SCRIPT >$script
-#!/bin/bash
+set -o errexit -o nounset -o pipefail -o xtrace
+
+function terminate() {
+    curl -kL "https://ci.openshift.redhat.com/jenkins/job/continuous-upgrade_terminate-job/build?token=origin1"
+}
+
+trap terminate ERR
+
 cat << EOR > ./openshift-int.repo
 [openshift-int]
 baseurl = https://mirror.openshift.com/enterprise/online-int/latest/x86_64/os/
@@ -24,10 +31,13 @@ ansible-playbook  -vv          \
           /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml \
           -e etcd_data_dir="/tmp/etcd"                                  \
           -e deployment_type="openshift-enterprise"                     \
-          -e oreg_url='registry.ops.openshift.com/openshift3/ose-${component}:${version}' \
+          -e oreg_url='registry.ops.openshift.com/openshift3/ose-\${component}:\${version}' \
           -e openshift_docker_insecure_registries="brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888" \
           -e openshift_docker_additional_registries="brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888,registry.ops.openshift.com"
+
+curl -kL "https://ci.openshift.redhat.com/jenkins/job/continuous-upgrade_upgrade-job/build?token=origin1"
+
 SCRIPT
-chmod +x $script
-scp -F ./.config/origin-ci-tool/inventory/.ssh_config $script openshiftdevel:$script
-ssh -F ./.config/origin-ci-tool/inventory/.ssh_config -t openshiftdevel "bash -l -c \"$script\"" 
+chmod +x "${script}"
+scp -F ~/continuous-upgrade/origin-ci-tool/inventory/.ssh_config "${script}" openshiftdevel:"${script}"
+ssh -F ~/continuous-upgrade/origin-ci-tool/inventory/.ssh_config -t openshiftdevel "bash -l -c \"${script}\""

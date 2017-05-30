@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project>
+  <actions/>
+  <description>Continuous Upgrade - Terminate Job&lt;!-- Managed by Jenkins Job Builder --&gt;</description>
+  <keepDependencies>false</keepDependencies>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <authToken>origin1</authToken>
+  <concurrentBuild>false</concurrentBuild>
+  <canRoam>true</canRoam>
+  <properties/>
+  <scm class="hudson.scm.NullSCM"/>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>#!/bin/bash
+set -o errexit -o nounset -o pipefail -o xtrace
+latest=$( readlink $HOME/origin-ci-tool/latest )
+touch $latest
+cp $latest/bin/activate $WORKSPACE/activate
+cat &gt;&gt; $WORKSPACE/activate &lt;&lt;EOF
+export OCT_CONFIG_HOME=~/continuous-upgrade/
+EOF
+
+source $WORKSPACE/activate
+oct deprovision
+
+curl -kL &quot;https://ci.openshift.redhat.com/jenkins/job/continuous-upgrade_provision-job/build?token=origin1&quot;</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers/>
+  <buildWrappers/>
+</project>

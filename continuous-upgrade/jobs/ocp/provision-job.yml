@@ -1,0 +1,11 @@
+- job:
+    name: continuos-upgrade/install-job
+    description: 'Continuous Upgrade - Install Job'
+    project-type: freestyle
+    auth-token: origin1
+    builders:
+      - shell: 
+          !include-raw:
+              - install-oct.sh
+              - provision-cloud-resources.sh
+              - install-ocp.sh

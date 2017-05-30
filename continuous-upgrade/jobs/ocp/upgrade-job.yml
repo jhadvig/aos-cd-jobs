@@ -1,0 +1,11 @@
+- job:
+    name: continuos-upgrade/upgrade-job
+    description: 'Continuous Upgrade - Upgrade Job'
+    project-type: freestyle
+    test-var: testik
+    auth-token: origin1
+    defualts: 'global'
+    builders:
+      - shell:
+          !include-raw:
+              - upgrade-ocp.sh

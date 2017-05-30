@@ -1,8 +1,0 @@
-- job-template:
-    name: '{name}_job'
-    description: 'Automatically generated test'
-    project-type: freestyle
-    defaults: ocp-defaults
-    builders:
-      - shell: '{command}'
-      - shell: !include-raw-escape: test.sh

@@ -1,5 +1,5 @@
 - defaults:
-    name: ocp-defaults
+    name: 'global'
     description: |
       Maintainer: <a href="mailto:jhadvig@redhat.com">Jakub Hadvig</a><br/>
       Secondary Maintainer: <a href="mailto:skuznets@redhat.com">Steve Kuznetsov</a><br/>
