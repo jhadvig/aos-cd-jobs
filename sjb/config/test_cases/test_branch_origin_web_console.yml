@@ -6,13 +6,37 @@ overrides:
 extensions:
   actions:
     - type: "script"
+      title: "determine image versions"
+      repository: "origin"
+      script: |-
+        if [ "${PULL_BASE_REF}" == "enterprise-3.6" ]; then
+          echo "IMAGE_VERSION=v3.6.1" > IMAGE_VERSION_VAR
+        elif [ "${PULL_BASE_REF}" == "enterprise-3.8" ]; then
+          echo "IMAGE_VERSION=v3.9" > IMAGE_VERSION_VAR
+        elif [ "${PULL_BASE_REF}" == "master" ]; then
+          echo "IMAGE_VERSION=latest" > IMAGE_VERSION_VAR
+        else
+          echo "IMAGE_VERSION=${PULL_BASE_REF/enterprise-/v}" > IMAGE_VERSION_VAR
+        fi
+        source IMAGE_VERSION_VAR
+        sudo docker pull openshift/origin:"${IMAGE_VERSION}"
+        sudo docker create --name temp-container openshift/origin:"${IMAGE_VERSION}"
+        sudo docker cp temp-container:/usr/bin/oc ./
+        sudo docker rm temp-container
+        sudo mv -f ./oc /bin/oc
+    - type: "script"
       title: "start openshift server"
       repository: "origin"
       script: |-
-        sudo yum --disablerepo=\* --enablerepo=origin-local-release,oso-rhui-rhel-server-releases install -y origin-clients
         wget https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
         sudo yum install ./google-chrome-stable_current_*.rpm -y
-        oc cluster up --version=latest --public-hostname=localhost --loglevel=5 --server-loglevel=5
+        source IMAGE_VERSION_VAR
+        oc version
+        if [ "${IMAGE_VERSION}" == "v3.9" ]; then
+          oc cluster up --version=v3.9 --public-hostname=localhost --loglevel=5 --server-loglevel=5
+        else
+          oc cluster up --public-hostname=localhost --loglevel=5 --server-loglevel=5
+        fi
     - type: "script"
       title: "run web console tests"
       repository: "origin-web-console"
